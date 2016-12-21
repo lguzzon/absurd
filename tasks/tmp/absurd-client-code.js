@@ -29,7 +29,7 @@ var require = function(v) {
         return lib.processors.html.helpers.PropAnalyzer;
     } else if(v == '../../helpers/TransformUppercase') {
         return lib.helpers.TransformUppercase;
-    } else if(v == './helpers/TemplateEngine') {
+    } else if(v == './helpers/TemplateEngine' || v == '../html/helpers/TemplateEngine') {
         return lib.processors.html.helpers.TemplateEngine;
     } else if(v == '../helpers/Extend') {
         return lib.helpers.Extend;
@@ -276,7 +276,7 @@ api.get = function(key) {
 var CSS = false;
 api.__handleCSS = function(next) {
 	if(this.css) {
-		absurd.flush().add(this.css).compile(function(err, css) {
+		absurd.flush().morph('dynamic-css').add(this.css).compile(function(err, css) {
 			if(!CSS) {
 				var style = createNode(
 					'style', [
@@ -292,7 +292,7 @@ api.__handleCSS = function(next) {
 				CSS.element.innerHTML = css;
 			}
 			next();
-		});
+		}, this);
 	} else {
 		next();
 	}
@@ -335,6 +335,9 @@ api.__mergeDOMElements = function(e1, e2) {
 				if(a1.name === a2.name) {
 					e1.setAttribute(a1.name, a2.value);
 					found[a1.name] = true;
+					if(a1.name === 'value') {
+						e1.value = a2.value;
+					}
 				}
 			}
 			if(!found[a1.name]) {
@@ -344,6 +347,9 @@ api.__mergeDOMElements = function(e1, e2) {
 		for(var i=0; i<attr2.length, a2=attr2[i]; i++) {
 			if(!found[a2.name]) {
 				e1.setAttribute(a2.name, a2.value);
+				if(a2.name === 'value') {
+					e1.value = a2.value;
+				}
 			}
 		}
 	}
@@ -561,9 +567,10 @@ var isPopulateInProgress = false;
 api.populate = function(options) {
 	if(isPopulateInProgress) return;
 	isPopulateInProgress = true;
+	var empty = function(next) { next(); return this; };
 	queue([
-		api.__handleCSS,
-		api.__handleHTML,
+		options && options.css === false ? empty : api.__handleCSS,
+		options && options.html === false ? empty : api.__handleHTML,
 		api.__append, 
 		api.__handleEvents,
 		api.__handleAsyncFunctions,
@@ -936,7 +943,7 @@ var client = function() {
 
 		var extend = function(destination, source) {
 			for (var key in source) {
-				if (hasOwnProperty.call(source, key)) {
+				if (Object.prototype.hasOwnProperty.call(source, key)) {
 					destination[key] = source[key];
 				}
 			}
@@ -974,7 +981,7 @@ var client = function() {
 			_api.defaultProcessor = lib.processors.css.CSS();
 			return _api;
 		}
-		_api.import = function() { 
+		_api['import'] = function() { 
 			if(_api.callHooks("import", arguments)) return _api;
 			return _api; 
 		}
@@ -1133,12 +1140,13 @@ var client = function() {
 				api: _api
 			};
 			options = extend(defaultOptions, options || {});
-			options.processor(
+			var res = options.processor(
 				_api.getRules(),
 				callback || function() {},
 				options
 			);
 			_api.flush();
+			return res;
 		}
 
 		// registering api methods

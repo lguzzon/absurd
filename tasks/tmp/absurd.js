@@ -114,8 +114,11 @@ lib.api.add = function(API) {
 
 		// if array is passed
 		if(typeof props.length !== 'undefined' && typeof props === "object") {
-			for(var i=0; i<props.length, prop=props[i]; i++) {
-				addRule(selector, prop, stylesheet, parentSelector);
+			for(var i=0; i<props.length; i++) {
+				prop=props[i];
+				if(prop) {
+					addRule(selector, prop, stylesheet, parentSelector);
+				}
 			}
 			return;
 		}
@@ -241,7 +244,7 @@ lib.api.add = function(API) {
 					props = toRegister[i].props,
 					allRules = API.getRules(stylesheet);
 				var pc = options && options.preventCombining ? '|' + options.preventCombining.join('|') : '';
-				var uid = pc.indexOf('|' + selector) >= 0 ? '~~' + API.numOfAddedRules + '~~' : '';
+				var uid = pc.indexOf('|' + selector.replace(/^%.*?%/, '')) >= 0 ? '~~' + API.numOfAddedRules + '~~' : '';
 				// overwrite already added value
 				var current = allRules[uid + selector] || {};
 				for(var propNew in props) {
@@ -282,11 +285,12 @@ lib.api.add = function(API) {
 	}
 	return add;
 }
+
 var extend = require("../helpers/Extend");
 
 lib.api.compile = function(api) {
 	return function() {
-		var path = null, callback = null, options = null;
+		var path = null, callback = function() {}, options = null;
 		for(var i=0; i<arguments.length; i++) {
 			switch(typeof arguments[i]) {
 				case "function": callback = arguments[i]; break;
@@ -304,12 +308,16 @@ lib.api.compile = function(api) {
 		};
 		options = extend(_defaultOptions, options || {});
 
-		options.processor(
+		return options.processor(
 			api.getRules(),
 			function(err, result) {
 				if(path != null) {
 					try {
-						fs.writeFile(path, result, function (err) {
+						var fileContent = result;
+						if('object' === typeof fileContent) {
+							fileContent = JSON.stringify(fileContent);
+						}
+						fs.writeFile(path, fileContent, function (err) {
 							callback(err, result);
 						});
 					} catch(err) {
@@ -325,6 +333,7 @@ lib.api.compile = function(api) {
 		
 	}
 }
+
 lib.api.compileFile = function(api) {
 	return api.compile;
 }
@@ -421,6 +430,9 @@ var metamorphosis = {
 	},
 	jsonify: function(api) {
 		api.jsonify = true;
+	},
+	'dynamic-css': function(api) {
+		api.dynamicCSS = true;
 	}
 }
 lib.api.morph = function(api) {
@@ -1052,11 +1064,12 @@ lib.helpers.Clone = function clone(item) {
         result;
 
     // normalizing primitives if someone did new String('aaa'), or new Number('444');
-    types.forEach(function(type) {
-        if (item instanceof type) {
+    for(var i=0; i<types.length; i++) {
+        var type = types[i];
+        if(item instanceof type) {
             result = type( item );
         }
-    });
+    }
 
     if (typeof result == "undefined") {
         if (Object.prototype.toString.call( item ) === "[object Array]") {
@@ -1117,8 +1130,8 @@ lib.helpers.ColorLuminance = function (hex, lum) {
 }
 lib.helpers.Extend = function() {
 	var process = function(destination, source) {	
-	    for (var key in source) {
-			if (hasOwnProperty.call(source, key)) {
+	    for(var key in source) {
+			if(Object.prototype.hasOwnProperty.call(source, key)) {
 			    destination[key] = source[key];
 			}
 	    }
@@ -1133,7 +1146,7 @@ lib.helpers.Extend = function() {
 // http://docs.emmet.io/css-abbreviations/vendor-prefixes/ (w: webkit, m: moz, s: ms, o: o)
 var prefixExtract = function(prop) {
 	var result, match;
-	if(match = prop.match(/^\-(w|m|s|o)+\-/) || prop.charAt(0) === '-') {
+	if((match = prop.match(/^\-(w|m|s|o)+\-/) || prop.charAt(0) === '-') && !prop.match(/^\-(webkit|moz|ms)+\-/)) {
 		if(match !== null && match[0]) {
 			result = { prefix: match[0].replace(/-/g, '') }
 			result.prop = prop.replace(match[0], '');
@@ -1296,15 +1309,14 @@ var toCSS = function(rules, options, indent) {
 			css += rules[selector][selector] + newline;
 		// handling normal styles
 		} else {
-			var entityStyle = indent[0] + selector.replace(/~~(.+)~~/, '') + ' {' + newline;
+			var entityStyle = indent[0] + selector.replace(/~~(.+)~~/, '').replace(/^%.*?%/, '') + ' {' + newline;
 			var entity = '';
 			for(var prop in rules[selector]) {
 				var value = rules[selector][prop];
 				if(value === "") {
 					value = '""';
 				}
-				prop = prop.replace(/~~(.+)~~/, '');
-				prop = prop.replace(/^%(.*)+?%/, '');
+				prop = prop.replace(/~~(.+)~~/, '').replace(/^%.*?%/, '');
 				if(options && options.keepCamelCase === true) {
 					entity += indent[1] + prop + ': ' + value + ';' + newline;
 				} else {
@@ -1361,7 +1373,7 @@ var combineSelectors = function(rules, preventCombining) {
 				selector: selector, 
 				prop: prop, 
 				value: props[prop], 
-				combine: preventCombining.indexOf('|' + prop) < 0
+				combine: preventCombining.indexOf('|' + prop) < 0 && selector.indexOf('@font-face') < 0
 			});
 		}
 	}
@@ -1371,7 +1383,7 @@ var combineSelectors = function(rules, preventCombining) {
 		if(map[i].combine === true && map[i].selector !== false) {
 			for(var j=i+1;j<map.length; j++) {
 				if(map[i].prop === map[j].prop && map[i].value === map[j].value) {
-					map[i].selector += ', ' + map[j].selector;
+					map[i].selector += ', ' + map[j].selector.replace(/~~(.+)~~/, '').replace(/^%.*?%/, '');
 					map[j].selector = false; // marking for removal
 				}
 			}
@@ -1385,29 +1397,6 @@ var combineSelectors = function(rules, preventCombining) {
 			arr[map[i].selector][map[i].prop] = map[i].value;
 		}
 	}
-
-	// // creating the map
-	// for(var selector in rules) {
-	// 	var props = rules[selector];
-	// 	for(var prop in props) {
-	// 		if(preventCombining.indexOf(prop) < 0) {
-	// 			var value = props[prop];
-	// 			if(!map[prop]) map[prop] = {};
-	// 			if(!map[prop][value]) map[prop][value] = [];
-	// 			map[prop][value].push(selector);
-	// 		}
-	// 	}
-	// }
-	// // converting the map to usual rules object
-	// for(var prop in map) {
-	// 	var values = map[prop];
-	// 	for(var value in values) {
-	// 		var selectors = values[value];
-	// 		if(!arr[selectors.join(", ")]) arr[selectors.join(", ")] = {}
-	// 		var selector = arr[selectors.join(", ")];
-	// 		selector[prop] = value;	
-	// 	}		
-	// }
 	
 	return arr;
 }
@@ -1458,6 +1447,10 @@ lib.processors.css.CSS = function() {
 			}		
 		}
 		css = replaceDefined(css, options);
+		// Dynamic CSS
+		if(options && options.api && options.api.dynamicCSS) {
+			css = require("../html/helpers/TemplateEngine")(css, options);
+		}
 		// Minification
 		if(options.minify) {
 			css = minimize(css);
@@ -1470,6 +1463,7 @@ lib.processors.css.CSS = function() {
 	processor.type = "css";
 	return processor;
 }
+
 lib.processors.css.plugins.charset = function() {	
 	return function(api, charsetValue) {
 		if(typeof charsetValue === "string") {
@@ -1545,17 +1539,22 @@ lib.processors.css.plugins.media = function() {
 		if(typeof value === "object") {
 			var content = '@media ' + value.media + " {\n";
 			var rules = {}, json = {};
-			for(var i=0; rule=value.rules[i]; i++) {				
-				var r = rules[rule.selectors.toString()] = {};
-				var rjson = json[rule.selectors.toString()] = {};
-				if(rule.type === "rule") {
-					for(var j=0; declaration=rule.declarations[j]; j++) {
-						if(declaration.type === "declaration") {
-							r[declaration.property] = declaration.value;
-							rjson[declaration.property] = declaration.value;
+			for(var i=0; rule=value.rules[i]; i++) {
+				var
+					r, rjson;
+				if (rule.selectors) {
+					r = rules[rule.selectors.toString()] = {};
+					rjson = json[rule.selectors.toString()] = {};
+					if(rule.type === "rule") {
+						for(var j=0; declaration=rule.declarations[j]; j++) {
+							if(declaration.type === "declaration") {
+								r[declaration.property] = declaration.value;
+								rjson[declaration.property] = declaration.value;
+							}
 						}
 					}
 				}
+				
 			}
 			content += processor({mainstream: rules});
 			content += "}";
@@ -1665,68 +1664,86 @@ var process = function(tagName, obj) {
 		childs += value;
 	}
 
+	var addEventAttribute = function(obj) {
+		var addition = [];
+		for(var eventName in obj) {
+			addition.push(eventName.replace(/^\$/, '') + ':' + obj[eventName]);
+		}
+		if(addition.length > 0) {
+			if(/data-absurd-event/g.test(attrs)) {
+				attrs.replace(/data-absurd-event="(.*)"/, 'data-absurd-event="$1,' + addition.join(',') + '"');
+			} else {
+				attrs += ' data-absurd-event="' + addition.join(',') + '"';
+			}
+		}
+	}
+
 	// process directives
 	for(var directiveName in obj) {
 		var value = obj[directiveName];
-		switch(directiveName) {
-			case "_attrs":
-				for(var attrName in value) {
-					if(typeof value[attrName] === "function") {
-						attrs += " " + prepareProperty(attrName, passedOptions) + "=\"" + value[attrName]() + "\"";
-					} else {
-						attrs += " " + prepareProperty(attrName, passedOptions) + "=\"" + value[attrName] + "\"";
+		if(/^\$/.test(directiveName)) {
+			addEventAttribute(obj);
+		} else {
+			switch(directiveName) {
+				case "_attrs":
+					for(var attrName in value) {
+						if(typeof value[attrName] === "function") {
+							attrs += " " + prepareProperty(attrName, passedOptions) + "=\"" + value[attrName]() + "\"";
+						} else {
+							attrs += " " + prepareProperty(attrName, passedOptions) + "=\"" + value[attrName] + "\"";
+						}
 					}
-				}
-			break;
-			case "_":
-				addToChilds(value);
-			break;
-			case "_tpl": 
-				if(typeof value == "string") {
-					addToChilds(processTemplate(value));
-				} else if(value instanceof Array) {
+				break;
+				case "_":
+					addToChilds(value);
+				break;
+				case "_tpl": 
+					if(typeof value == "string") {
+						addToChilds(processTemplate(value));
+					} else if(value instanceof Array) {
+						var tmp = '';
+						for(var i=0; tpl=value[i]; i++) {
+							tmp += processTemplate(tpl)
+							if(i < value.length-1) tmp += newline;
+						}
+						addToChilds(tmp);
+					}
+				break;
+				case "_include":
 					var tmp = '';
-					for(var i=0; tpl=value[i]; i++) {
-						tmp += processTemplate(tpl)
-						if(i < value.length-1) tmp += newline;
+					var add = function(o) {
+						if(typeof o === "function") { o = o(); }
+						if(o.css && o.html) { o = o.html; } // catching a component
+						tmp += process('', o);
+					}
+					if(value instanceof Array) {
+						for(var i=0; i<value.length, o=value[i]; i++) {
+							add(o);
+						}
+					} else if(typeof value === "object"){
+						add(value);
 					}
 					addToChilds(tmp);
-				}
-			break;
-			case "_include":
-				var tmp = '';
-				var add = function(o) {
-					if(typeof o === "function") { o = o(); }
-					if(o.css && o.html) { o = o.html; } // catching a component
-					tmp += process('', o);
-				}
-				if(value instanceof Array) {
-					for(var i=0; i<value.length, o=value[i]; i++) {
-						add(o);
-					}
-				} else if(typeof value === "object"){
-					add(value);
-				}
-				addToChilds(tmp);
-			break;
-			default:
-				switch(typeof value) {
-					case "string": addToChilds(process(directiveName, value)); break;
-					case "object": 
-						if(value && value.length && value.length > 0) {
-							var tmp = '';
-							for(var i=0; v=value[i]; i++) {
-								tmp += process('', typeof v == "function" ? v() : v);
-								if(i < value.length-1) tmp += newline;
+				break;
+				default:
+					switch(typeof value) {
+						case "string": addToChilds(process(directiveName, value)); break;
+						case "object": 
+							if(value && value.length && value.length > 0) {
+								var tmp = '';
+								for(var i=0; v=value[i]; i++) {
+									tmp += process('', typeof v == "function" ? v() : v);
+									if(i < value.length-1) tmp += newline;
+								}
+								addToChilds(process(directiveName, tmp));
+							} else {
+								addToChilds(process(directiveName, value));
 							}
-							addToChilds(process(directiveName, tmp));
-						} else {
-							addToChilds(process(directiveName, value));
-						}
-					break;
-					case "function": addToChilds(process(directiveName, value())); break;
-				}
-			break;
+						break;
+						case "function": addToChilds(process(directiveName, value())); break;
+					}
+				break;
+			}
 		}
 	}
 
@@ -1854,7 +1871,8 @@ lib.processors.html.helpers.TemplateEngine = function(html, options) {
 		reExp = /(^( )?(var|if|for|else|switch|case|break|{|}|;))(.*)?/g, 
 		code = 'with(obj) { var r=[];\n', 
 		cursor = 0, 
-		result;
+		result,
+	    	match;
 	var add = function(line, js) {
 		js? (code += line.match(reExp) ? line + '\n' : 'r.push(' + line + ');\n') :
 			(code += line != '' ? 'r.push("' + line.replace(/"/g, '\\"') + '");\n' : '');
@@ -1865,7 +1883,7 @@ lib.processors.html.helpers.TemplateEngine = function(html, options) {
 		cursor = match.index + match[0].length;
 	}
 	add(html.substr(cursor, html.length - cursor));
-	code = (code + 'return r.join(""); }').replace(/[\r\t\n]/g, '');
+	code = (code + 'return r.join(""); }').replace(/[\r\t\n]/g, ' ');
 	try { result = new Function('obj', code).apply(options, [options]); }
 	catch(err) { console.error("'" + err.message + "'", " in \n\nCode:\n", code, "\n"); }
 	return result;

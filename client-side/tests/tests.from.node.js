@@ -273,7 +273,7 @@ describe("Hooks", function() {
 				body: {
 					fontSize: "20px"
 				}
-			}).import("body-styles.bla").compile(function(err, css) {
+			})['import']("body-styles.bla").compile(function(err, css) {
 				expect(css).toBe("body {\n  font-size: 11.5px;\n}\n");
 				done();
 			})
@@ -289,7 +289,7 @@ describe("Hooks", function() {
 				body: {
 					fontSize: "20px"
 				}
-			}).import("body-styles.bla").compile(function(err, css) {
+			})['import']("body-styles.bla").compile(function(err, css) {
 				expect(css).toBe("AbsurdJS is awesome!");
 				done();
 			})
@@ -797,6 +797,21 @@ describe("Register api method", function() {
 	});
 
 });
+describe("Should return the processed data", function() {
+
+	var api = require('../../index.js')();
+
+	it("should use the compile method", function(done) {
+		var result = api.add({
+		    body: {
+		    	fz: '20px'
+		    }
+		}).compile(null, { minify: true });
+		expect(result).toBe('body{font-size: 20px;}');
+		done();
+	});
+
+});
 describe("Use ampersand operator", function() {
 
 	var api = require('../../index.js')();
@@ -936,6 +951,26 @@ describe("Fixing allow empty values - ", function() {
 			expect(css).toBe("section:after {\n  content: \"\";\n}\n");
 			done();
 		});		
+	});
+
+});
+describe("Fixing allow null values - ", function() {
+
+	var Absurd = require('../../index.js');
+
+	it("allow null in arrays", function(done) {
+		Absurd(function(api) {
+			api.add({
+				body: {
+                    span: [{ width: '3px'}, null, {height: '3px'}]
+				}
+			});
+		}).compile(function(err, css) {
+			expect(err).toBe(null);
+			expect(css).toBeDefined();
+			expect(css).toBe("body span{width: 3px;height: 3px;}");
+			done();
+		}, {minify: true});
 	});
 
 });
@@ -1166,6 +1201,28 @@ describe("Can't compile atoms and molecules in keyframes", function() {
 	})
 
 });
+describe("Fixing browser prefixes bug - ", function() {
+
+	var Absurd = require('../../index.js');
+
+	it("should compile properly", function(done) {
+		Absurd(function(api) {
+			api.add({
+				header: {
+					"animation-name": "test",
+					"-moz-animation-name": "test",
+					"-webkit-animation-name": "test",
+					"-ms-animation-name": "test",
+					"-o-animation-name": "test"
+			    }
+			});
+		}).compile(function(err, css) {
+			expect(css).toBe('header{animation-name: test;-moz-animation-name: test;-webkit-animation-name: test;-ms-animation-name: test;-o-animation-name: test;}');
+			done();
+		}, {minify: true});		
+	});
+
+});
 describe("Can't compile top property", function() {
 
 	var api = require('../../index.js')();
@@ -1235,6 +1292,71 @@ describe("Wrong output on combineSelectors:false", function() {
 			done();
 		}, {minify: true, combineSelectors: false});
 	})
+
+});
+describe("Should add two @font-face", function() {
+
+	var api = require('../../index.js')();
+
+	it("should compile properly", function(done) {
+		api.add({
+			"@font-face": {
+		        fontFamily: "chinese_rocks_rg",
+		        src: "url('../fonts/chinese_rocks_rg.woff') format('woff'), url(../fonts/chinese_rocks_rg.ttf) format('truetype')"
+		    },
+		    "%test%@font-face": {
+		        fontFamily: "PENSHURS",
+		        src: "url('../fonts/PENSHURS.woff') format('woff'), url(../fonts/PENSHURS.ttf) format('truetype')"
+		    }
+		}).compile(function(err, css) {
+			expect(css).toBe("@font-face{font-family: chinese_rocks_rg;src: url('../fonts/chinese_rocks_rg.woff') format('woff'),url(../fonts/chinese_rocks_rg.ttf) format('truetype');}@font-face{font-family: PENSHURS;src: url('../fonts/PENSHURS.woff') format('woff'),url(../fonts/PENSHURS.ttf) format('truetype');}");
+			done();
+		}, { minify: true });
+	});
+	
+	it("should compile properly with three font faces", function(done) {
+		api.add({
+			'%1%@font-face': {
+			  'font-family': '\'Titillium\'',
+			  src: 'url(\'type/titillium-light-webfont.eot\')',
+			  'font-style': 'normal'
+			},
+			'%2%@font-face': {
+			  'font-family': '\'Titillium\'',
+			  src: 'url(\'type/titillium-lightitalic-webfont.eot\')',
+			  'font-style': 'italic'
+			},
+			'%3%@font-face': {
+			  'font-family': '\'Titillium\'',
+			  src: 'url(\'type/titillium-semibold-webfont.eot\')',
+			  'font-weight': '600',
+			  'font-style': 'normal'
+			}
+		}).compile(function(err, css) {
+			expect(css).toBe("@font-face{font-family: 'Titillium';src: url('type/titillium-light-webfont.eot');font-style: normal;}@font-face{font-family: 'Titillium';src: url('type/titillium-lightitalic-webfont.eot');font-style: italic;}@font-face{font-family: 'Titillium';src: url('type/titillium-semibold-webfont.eot');font-weight: 600;font-style: normal;}");
+			done();
+		}, { minify: true });
+	});
+
+	it("should compile properly with three font faces", function(done) {
+		api.add({ 
+				'@font-face': {
+					'font-family': '\'callunaregular\'',
+					src: 'url(\'type/calluna.eot\')',
+					'font-weight': 'normal',
+					'font-style': 'normal'
+				},
+				'%0%@font-face': { 
+					'font-family': '\'museo_sans100\'',
+					src: 'url(\'type/museosans.eot\')',
+					'font-weight': 'normal',
+					'font-style': 'normal'
+				}
+		}).compile(function(err, css) {
+			expect(css).toBe("@font-face{font-family: 'callunaregular';src: url('type/calluna.eot');font-weight: normal;font-style: normal;}@font-face{font-family: 'museo_sans100';src: url('type/museosans.eot');font-weight: normal;font-style: normal;}");
+			done();
+		}, { minify: true });
+	});
 
 });
 describe("Allow usage of keepCamelCase", function() {
@@ -1584,6 +1706,22 @@ describe("Support comma separated selectors", function() {
 	});
 
 });
+describe("Should skip the processing of null values", function() {
+
+	var api = require('../../index.js')();
+
+	it("should compile properly", function(done) {
+		api.add({
+			'%0%.grandparent .parent .child': {
+				color: '#fff'
+			}
+		}).compile(function(err, css) {
+			expect(css).toBe('.grandparent .parent .child{color: #fff;}');
+			done();
+		}, { minify: true });
+	});
+
+});
 describe("Using wid atom", function() {
 
 	var api = require('../../index.js')();
@@ -1914,7 +2052,7 @@ describe("Metamorphosis (to html preprocessor)", function() {
 					}
 				},
 				body: {
-					_attrs: { class: "home-page" },
+					_attrs: { cls: "home-page" },
 					section: {
 						h1: "that's html page"
 					}
@@ -1923,7 +2061,7 @@ describe("Metamorphosis (to html preprocessor)", function() {
 		}).compile(function(err, html) {
 			expect(err).toBe(null);
 			expect(html).toBeDefined();
-			expect(html).toBe('<!DOCTYPE html><html><head><title>html page</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></meta></head><body class="home-page"><section><h1>that\'s html page</h1></section></body></html>');
+			expect(html).toBe('<!DOCTYPE html><html><head><title>html page</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></meta></head><body cls="home-page"><section><h1>that\'s html page</h1></section></body></html>');
 			done();
 		}, { minify: true });
 	});
@@ -2307,12 +2445,12 @@ describe("Metamorphosis (to html preprocessor)", function() {
 	it("should compile tag with attributes", function(done) {
 		api.morph("html").add({
 			body: {
-				_attrs: { class: "black" }
+				_attrs: { cls: "black" }
 			}
 		}).compile(function(err, html) {
 			expect(err).toBe(null);
 			expect(html).toBeDefined();
-			expect(html).toBe('<body class="black"></body>');
+			expect(html).toBe('<body cls="black"></body>');
 			done();
 		}, { minify: true });
 	});
@@ -2320,13 +2458,13 @@ describe("Metamorphosis (to html preprocessor)", function() {
 	it("should compile tag with attributes and text inside", function(done) {
 		api.morph("html").add({
 			body: {
-				_attrs: { class: "black" },
+				_attrs: { cls: "black" },
 				_: "page text"
 			}
 		}).compile(function(err, html) {
 			expect(err).toBe(null);
 			expect(html).toBeDefined();
-			expect(html).toBe('<body class="black">page text</body>');
+			expect(html).toBe('<body cls="black">page text</body>');
 			done();
 		}, { minify: true });
 	});
@@ -2334,14 +2472,14 @@ describe("Metamorphosis (to html preprocessor)", function() {
 	it("should compile tag with attributes, text inside and nested tag", function(done) {
 		api.morph("html").add({
 			body: {
-				_attrs: { class: "black" },
+				_attrs: { cls: "black" },
 				_: "page text",
 				p: "paragraph text"
 			}
 		}).compile(function(err, html) {
 			expect(err).toBe(null);
 			expect(html).toBeDefined();
-			expect(html).toBe('<body class="black">page text<p>paragraph text</p></body>');
+			expect(html).toBe('<body cls="black">page text<p>paragraph text</p></body>');
 			done();
 		}, { minify: true });
 	});
@@ -3337,6 +3475,23 @@ describe("Should report errors properly", function() {
 			expect(err.toString().indexOf('Error: Error adding: {"rules":{"body":{"padding":"20px"}}') >= 0).toBe(true);
 			done();
 		}
+	});
+
+});
+describe("Should use dynamic expressions in css", function() {
+
+	var api = require('../../index.js')();
+
+	it("should compile properly", function(done) {
+		api.morph('dynamic-css').add({
+		    '.content <% elClass %>': {
+		    	width: '<% w %>',
+		    	padding: '20px'
+		    }
+		}).compile(function(err, css) {
+			expect(css).toBe('.content .black{width: 300px;padding: 20px;}');
+			done();
+		}, { minify: true, w: '300px', elClass: '.black' });
 	});
 
 });

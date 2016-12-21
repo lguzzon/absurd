@@ -14,6 +14,7 @@ module.exports = function(grunt) {
 					'!lib/api/handlecssrule.js',
 					'!lib/api/handlecssimport.js',
 					'!lib/api/import.js',
+					'!lib/api/express.js',
 					'!lib/processors/css/organic/**/*.*',
 					'!lib/helpers/CSS2JSON.js'
 				],
@@ -71,6 +72,7 @@ module.exports = function(grunt) {
 					'tests/experimental/move.selector.up.spec.js',
 					'tests/experimental/same.property.diff.value.spec.js',
 					'tests/experimental/error.reporting.spec.js',
+					'tests/experimental/dynamic.css.spec.js',
 					'!tests/common/api.import.spec.js',
 					'!tests/common/compile-and-save.spec.js',
 					'!tests/common/minify.spec.js',
@@ -82,11 +84,13 @@ module.exports = function(grunt) {
 					'!tests/common/variables-and-functions.spec.js',
 					'!tests/common/adding-raw-external-data.spec.js',
 					'!tests/common/define.external.css.spec.js',
+					'!tests/common/return-processed-external-data.spec.js',
 					'!tests/metamorphosis/html/morph.html.import.spec.js',
 					'!tests/metamorphosis/html/morph.html.indentation.spec.js',
 					'!tests/bugs/css.import.multiple.classes.spec.js',
 					'!tests/bugs/use.import.in.css.file.spec.js',
-					'!tests/experimental/csstojson.spec.js'
+					'!tests/experimental/csstojson.spec.js',
+					'!tests/bugs/dynamic-css-in-files/*.js'
 				],
 				dest: 'client-side/tests/tests.from.node.js',
 			}
@@ -120,25 +124,14 @@ module.exports = function(grunt) {
 				],
 				tasks: ['concat', 'build', 'uglify']
 			}
-		},
-		lineending: {
-			dist: {
-				options: {
-					eol: 'crlf'
-				},
-				files: {
-					'./index.js': ['./index.js']
-				}
-			}
 		}
 	});
 
 	grunt.loadNpmTasks('grunt-contrib-concat');
 	grunt.loadNpmTasks('grunt-contrib-watch');
 	grunt.loadNpmTasks('grunt-contrib-uglify');
-	grunt.loadNpmTasks('grunt-lineending');
 	grunt.loadTasks('tasks');
 
-	grunt.registerTask('default', ['concat', 'build', 'uglify', 'lineending', 'watch']);
+	grunt.registerTask('default', ['concat', 'build', 'uglify', 'watch']);
 
 }

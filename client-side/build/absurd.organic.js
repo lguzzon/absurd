@@ -1,4 +1,4 @@
-/* version: 0.3.157, born: 14-3-2014 18:31 */
+/* version: 0.3.7, born: 20-10-2016 9:44 */
 var Organic = (function(w){
 var o = {
 	helpers: {},
@@ -312,8 +312,8 @@ o.helpers.snippets = function() {
 	"tol": "text-outline",
 	"tol+": "text-outline:0 0 #000",
 	"tol:n": "text-outline:none",
-	"tr": "text-replace",
-	"tr:n": "text-replace:none",
+	// "tr": "text-replace",
+	// "tr:n": "text-replace:none",
 	"tt": "text-transform",
 	"tt:n": "text-transform:none",
 	"tt:c": "text-transform:capitalize",
@@ -452,8 +452,8 @@ o.helpers.snippets = function() {
 	"bdcl:c": "border-collapse:collapse",
 	"bdcl:s": "border-collapse:separate",
 	"bdc": "border-color:#000",
-	"bdi": "border-image:url()",
-	"bdi:n": "border-image:none",
+	// "bdi": "border-image:url()",
+	// "bdi:n": "border-image:none",
 	"bdti": "border-top-image:url()",
 	"bdti:n": "border-top-image:none",
 	"bdri": "border-right-image:url()",
