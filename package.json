@@ -13,11 +13,11 @@
     
   },
   "devDependencies": {
-    "grunt": "0.4.1",
-    "grunt-contrib-concat": "0.3.0",
-    "grunt-contrib-watch": "0.4.4",
+    "grunt": "1.0.1",
+    "grunt-contrib-concat": "1.0.1",
+    "grunt-contrib-watch": "1.0.0",
     "grunt-absurd": "*",
-    "request": "2.27.0"
+    "request": "2.79.0"
   },
   "keywords": [
     "css",
